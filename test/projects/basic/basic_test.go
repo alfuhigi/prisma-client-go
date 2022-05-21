@@ -318,7 +318,7 @@ func TestBasic(t *testing.T) {
 				// set required value
 				User.Username.Set("new-username"),
 				// set optional value
-				User.Name.Set("New Name"),
+				User.Name.Set("New Scalar"),
 			).Exec(ctx)
 			if err != nil {
 				t.Fatalf("fail %s", err)
@@ -329,7 +329,7 @@ func TestBasic(t *testing.T) {
 					ID:       "update",
 					Email:    email,
 					Username: "new-username",
-					Name:     str("New Name"),
+					Name:     str("New Scalar"),
 				},
 			}
 
@@ -372,7 +372,7 @@ func TestBasic(t *testing.T) {
 			result, err := client.User.FindMany(
 				User.Username.Equals("username"),
 			).Update(
-				User.Name.Set("New Name"),
+				User.Name.Set("New Scalar"),
 			).Exec(ctx)
 			if err != nil {
 				t.Fatalf("fail %s", err)
@@ -392,14 +392,14 @@ func TestBasic(t *testing.T) {
 					ID:       "id1",
 					Email:    "email1",
 					Username: "username",
-					Name:     str("New Name"),
+					Name:     str("New Scalar"),
 				},
 			}, {
 				InnerUser: InnerUser{
 					ID:       "id2",
 					Email:    "email2",
 					Username: "username",
-					Name:     str("New Name"),
+					Name:     str("New Scalar"),
 				},
 			}}
 
@@ -599,6 +599,8 @@ func TestBasic(t *testing.T) {
 					User.Email.Equals("email1"),
 					User.ID.Equals("id2"),
 				),
+			).OrderBy(
+				User.ID.Order(SortOrderAsc),
 			).Exec(ctx)
 			if err != nil {
 				t.Fatalf("fail %s", err)
@@ -620,11 +622,148 @@ func TestBasic(t *testing.T) {
 
 			assert.Equal(t, expected, actual)
 		},
+	}, {
+		name: "OR operationc complex",
+		// language=GraphQL
+		before: []string{`
+			mutation {
+				result: createOneUser(data: {
+					id: "id1",
+					email: "email1",
+					username: "a",
+				}) {
+					id
+				}
+			}
+		`, `
+			mutation {
+				result: createOneUser(data: {
+					id: "id2",
+					email: "email2",
+					username: "b",
+				}) {
+					id
+				}
+			}
+		`, `
+			mutation {
+				result: createOneUser(data: {
+					id: "id3",
+					email: "email3",
+					username: "c",
+				}) {
+					id
+				}
+			}
+		`, `
+			mutation {
+				result: createOneUser(data: {
+					id: "id4",
+					email: "email4",
+					username: "d",
+				}) {
+					id
+				}
+			}
+		`},
+		run: func(t *testing.T, client *PrismaClient, ctx cx) {
+			actual, err := client.User.FindMany(
+				User.Or(
+					User.And(
+						User.Email.Equals("email1"),
+						User.ID.Equals("id1"),
+					),
+					User.And(
+						User.Email.Equals("email2"),
+						User.ID.Equals("id2"),
+					),
+					User.And(
+						User.Or(
+							User.Email.Equals("email4"),
+							User.Email.Equals("email999"),
+						),
+						User.Or(
+							User.ID.Equals("id4"),
+							User.ID.Equals("id999"),
+						),
+					),
+				),
+			).OrderBy(
+				User.ID.Order(SortOrderAsc),
+			).Exec(ctx)
+			if err != nil {
+				t.Fatalf("fail %s", err)
+			}
+
+			expected := []UserModel{{
+				InnerUser: InnerUser{
+					ID:       "id1",
+					Email:    "email1",
+					Username: "a",
+				},
+			}, {
+				InnerUser: InnerUser{
+					ID:       "id2",
+					Email:    "email2",
+					Username: "b",
+				},
+			}, {
+				InnerUser: InnerUser{
+					ID:       "id4",
+					Email:    "email4",
+					Username: "d",
+				},
+			}}
+
+			assert.Equal(t, expected, actual)
+		},
+	}, {
+		name: "id in",
+		// language=GraphQL
+		before: []string{`
+			mutation {
+				result: createOneUser(data: {
+					id: "id1",
+					email: "email1",
+					username: "a",
+				}) {
+					id
+				}
+			}
+		`, `
+			mutation {
+				result: createOneUser(data: {
+					id: "id2",
+					email: "email2",
+					username: "b",
+				}) {
+					id
+				}
+			}
+		`},
+		run: func(t *testing.T, client *PrismaClient, ctx cx) {
+			actual, err := client.User.FindMany(
+				User.ID.In([]string{"id2", "id3"}),
+			).Exec(ctx)
+			if err != nil {
+				t.Fatalf("fail %s", err)
+			}
+
+			expected := []UserModel{{
+				InnerUser: InnerUser{
+					ID:       "id2",
+					Email:    "email2",
+					Username: "b",
+				},
+			}}
+
+			assert.Equal(t, expected, actual)
+		},
 	}}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			test.RunSerial(t, []test.Database{test.SQLite, test.MySQL, test.PostgreSQL}, func(t *testing.T, db test.Database, ctx context.Context) {
+			test.RunSerial(t, test.Databases, func(t *testing.T, db test.Database, ctx context.Context) {
 				client := NewClient()
 				mockDBName := test.Start(t, db, client.Engine, tt.before)
 				defer test.End(t, db, client.Engine, mockDBName)

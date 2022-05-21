@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -16,11 +15,11 @@ import (
 )
 
 // PrismaVersion is a hardcoded version of the Prisma CLI.
-const PrismaVersion = "2.23.0"
+const PrismaVersion = "3.13.0"
 
 // EngineVersion is a hardcoded version of the Prisma Engine.
-// The versions can be found under https://github.com/prisma/prisma-engine/commits/master.
-const EngineVersion = "adf5e8cba3daf12d456d911d72b6e9418681b28b"
+// The versions can be found under https://github.com/prisma/prisma-engines/commits/master
+const EngineVersion = "efdf9b1183dddfd4258cd181a72125755215ab7b"
 
 // PrismaURL points to an S3 bucket URL where the CLI binaries are stored.
 var PrismaURL = "https://prisma-photongo.s3-eu-west-1.amazonaws.com/%s-%s-%s.gz"
@@ -68,15 +67,15 @@ var baseDirName = path.Join("prisma", "binaries")
 
 // GlobalTempDir returns the path of where the engines live
 // internally, this is the global temp dir
-func GlobalTempDir() string {
+func GlobalTempDir(version string) string {
 	temp := os.TempDir()
 	logger.Debug.Printf("temp dir: %s", temp)
 
-	return path.Join(temp, baseDirName, "engines", EngineVersion)
+	return path.Join(temp, baseDirName, "engines", version)
 }
 
-func GlobalUnpackDir() string {
-	return path.Join(GlobalTempDir(), "unpacked")
+func GlobalUnpackDir(version string) string {
+	return path.Join(GlobalTempDir(version), "unpacked", "v2")
 }
 
 // GlobalCacheDir returns the path of where the CLI lives
@@ -216,7 +215,7 @@ func download(url string, to string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		out, _ := ioutil.ReadAll(resp.Body)
+		out, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("received code %d from %s: %+v", resp.StatusCode, url, string(out))
 	}
 
@@ -251,12 +250,12 @@ func download(url string, to string) error {
 }
 
 func copyFile(from string, to string) error {
-	input, err := ioutil.ReadFile(from)
+	input, err := os.ReadFile(from)
 	if err != nil {
 		return fmt.Errorf("readfile: %w", err)
 	}
 
-	if err := ioutil.WriteFile(to, input, os.ModePerm); err != nil {
+	if err := os.WriteFile(to, input, os.ModePerm); err != nil {
 		return fmt.Errorf("writefile: %w", err)
 	}
 

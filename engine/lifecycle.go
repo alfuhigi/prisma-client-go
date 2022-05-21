@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/joho/godotenv"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 
 	"github.com/prisma/prisma-client-go/binaries"
 	"github.com/prisma/prisma-client-go/binaries/platform"
@@ -19,9 +20,9 @@ import (
 func (e *QueryEngine) Connect() error {
 	logger.Debug.Printf("ensure query engine binary...")
 
-	_ = godotenv.Load(".env")
-	_ = godotenv.Load("db/.env")
-	_ = godotenv.Load("prisma/.env")
+	_ = godotenv.Load("e2e.env")
+	_ = godotenv.Load("db/e2e.env")
+	_ = godotenv.Load("prisma/e2e.env")
 
 	startEngine := time.Now()
 
@@ -41,6 +42,7 @@ func (e *QueryEngine) Connect() error {
 }
 
 func (e *QueryEngine) Disconnect() error {
+	e.disconnected = true
 	logger.Debug.Printf("disconnecting...")
 
 	if platform.Name() == "windows" {
@@ -67,7 +69,7 @@ func (e *QueryEngine) Disconnect() error {
 func (e *QueryEngine) ensure() (string, error) {
 	ensureEngine := time.Now()
 
-	binariesPath := binaries.GlobalUnpackDir()
+	binariesPath := binaries.GlobalUnpackDir(binaries.EngineVersion)
 	// check for darwin/windows/linux first
 	binaryName := platform.CheckForExtension(platform.Name(), platform.Name())
 	exactBinaryName := platform.CheckForExtension(platform.Name(), platform.BinaryPlatformName())
@@ -165,6 +167,7 @@ func (e *QueryEngine) spawn(file string) error {
 		"PRISMA_DML="+e.Schema,
 		"RUST_LOG=error",
 		"RUST_LOG_FORMAT=json",
+		"PRISMA_CLIENT_ENGINE_TYPE=binary",
 	)
 
 	// TODO fine tune this using log levels

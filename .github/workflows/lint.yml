@@ -1,11 +1,5 @@
 name: lint all
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+on: pull_request
 env:
   PRISMA_TELEMETRY_INFORMATION: "prisma-client-go lint.yml"
 
@@ -14,13 +8,13 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v3
         with:
-          go-version: '1.15'
+          go-version: '1.17'
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/go/pkg/mod
@@ -35,7 +29,7 @@ jobs:
         run: go generate ./...
 
       - name: install golangci-lint
-        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.31.0
+        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.43.0
 
       - name: run linter
-        run: ./bin/golangci-lint run ./... --timeout "5m0s" --enable "gofmt,golint,scopelint,gocritic"
+        run: ./bin/golangci-lint run ./... --timeout "5m0s" --enable "gofmt,revive,exportloopref,gocritic"

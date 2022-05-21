@@ -2,7 +2,6 @@ package unpack
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -15,7 +14,7 @@ import (
 // TODO check checksum after expanding file
 
 // noinspection GoUnusedExportedFunction
-func Unpack(data []byte, name string) {
+func Unpack(data []byte, name string, version string) {
 	start := time.Now()
 
 	file := fmt.Sprintf("prisma-query-engine-%s", name)
@@ -23,7 +22,7 @@ func Unpack(data []byte, name string) {
 	// TODO check if dev env/dev binary in ~/.prisma
 	// TODO check if engine in local dir OR env var
 
-	tempDir := binaries.GlobalUnpackDir()
+	tempDir := binaries.GlobalUnpackDir(version)
 
 	dir := platform.CheckForExtension(platform.Name(), path.Join(tempDir, file))
 
@@ -36,7 +35,7 @@ func Unpack(data []byte, name string) {
 		return
 	}
 
-	if err := ioutil.WriteFile(dir, data, os.ModePerm); err != nil {
+	if err := os.WriteFile(dir, data, os.ModePerm); err != nil {
 		panic(fmt.Errorf("unpack write file: %w", err))
 	}
 	logger.Debug.Printf("unpacked at %s in %s", dir, time.Since(start))
